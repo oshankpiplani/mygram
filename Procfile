@@ -1,1 +1,1 @@
-web: gunicorn mygram:mygram
+web: gunicorn app:app
