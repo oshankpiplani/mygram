@@ -3,6 +3,7 @@ import pymysql
 from datetime import datetime
 from flask_cors import CORS, cross_origin
 import logging
+import os
 
 app = Flask(__name__)
 CORS(app, origins="*")
@@ -12,10 +13,11 @@ logging.getLogger('flask_cors').level = logging.DEBUG
 def db_connection():
     conn = None
     try:
-        conn = pymysql.connect(host='localhost',
-                               database='mygram',
-                               user='root',
-                               password='Pepsi@123',
+        print(os.environ['MYSQLHOST'],os.environ['MYSQLDATABASE'],os.environ['MYSQLUSER'])
+        conn = pymysql.connect(host=os.environ['MYSQLHOST'],
+                               database=os.environ['MYSQLDATABASE'],
+                               user=os.environ['MYSQLUSER'],
+                               password=os.environ['MYSQLPASSWORD'],
                                charset='utf8mb4',
                                cursorclass=pymysql.cursors.DictCursor)
     except pymysql.MySQLError as e:
