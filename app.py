@@ -1,29 +1,72 @@
+import requests
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
+from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt_identity
+
+import os
 import pymysql
 from datetime import datetime
 from flask_cors import CORS, cross_origin
 import logging
-import os
-
 app = Flask(__name__)
-CORS(app, origins="*")
-
-logging.getLogger('flask_cors').level = logging.DEBUG
+CORS(app)
+app.config['JWT_SECRET_KEY'] = 'JWT_SECRET_KEY'
+app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+jwt = JWTManager(app)
+load_dotenv()
+GOOGLE_CLIENT_ID = os.environ['GOOGLE_CLIENT_ID']
+GOOGLE_SECRET_KEY = os.environ['GOOGLE_CLIENT_SECRET']
 
 def db_connection():
     conn = None
     try:
-        print(os.environ['MYSQLHOST'],os.environ['MYSQLDATABASE'],os.environ['MYSQLUSER'])
-        conn = pymysql.connect(host=os.environ['MYSQLHOST'],
-                               database=os.environ['MYSQLDATABASE'],
-                               user=os.environ['MYSQLUSER'],
-                               password=os.environ['MYSQLPASSWORD'],
+        conn = pymysql.connect(host='localhost',
+                               database='mygram',
+                               user='root',
+                               password=os.environ['DB_PASSWORD'],
                                charset='utf8mb4',
                                cursorclass=pymysql.cursors.DictCursor)
     except pymysql.MySQLError as e:
         print(e)
     return conn
 
+@app.route('/google_login', methods=['POST'])
+def login():
+    auth_code = request.get_json()['code']
+
+    data = {
+        'code': auth_code,
+        'client_id': GOOGLE_CLIENT_ID,
+        'client_secret': GOOGLE_SECRET_KEY,
+        'redirect_uri': 'postmessage',
+        'grant_type': 'authorization_code'
+    }
+
+    response = requests.post('https://oauth2.googleapis.com/token', data=data).json()
+    headers = {
+        'Authorization': f'Bearer {response["access_token"]}'
+    }
+    user_info = requests.get('https://www.googleapis.com/oauth2/v3/userinfo', headers=headers).json()
+
+    """
+        check here if user exists in database, if not, add him
+    """
+
+    jwt_token = create_access_token(identity=user_info['email'])  # create jwt token
+    response = jsonify(user=user_info)
+    response.set_cookie('access_token_cookie', value=jwt_token, secure=True)
+
+    return response, 200
+
+
+
+@app.route("/protected", methods=["GET"])
+@jwt_required()
+def protected():
+
+    jwt_token = request.cookies.get('access_token_cookie') # Demonstration how to get the cookie
+    current_user = get_jwt_identity()
+    return jsonify(logged_in_as=current_user), 200
 @app.route('/users', methods=['GET', 'POST'])
 def users():
     conn = db_connection()
