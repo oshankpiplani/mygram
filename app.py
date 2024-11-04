@@ -2,37 +2,51 @@ import requests
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt_identity
-
 import os
 import pymysql
 from datetime import datetime
-from flask_cors import CORS, cross_origin
+from flask_cors import CORS
 import logging
+
 app = Flask(__name__)
-CORS(app)
-app.config['JWT_SECRET_KEY'] = 'JWT_SECRET_KEY'
-app.config['JWT_TOKEN_LOCATION'] = ['cookies']
-jwt = JWTManager(app)
+
+
 load_dotenv()
 GOOGLE_CLIENT_ID = os.environ['GOOGLE_CLIENT_ID']
 GOOGLE_SECRET_KEY = os.environ['GOOGLE_CLIENT_SECRET']
 
+
+app.config['CORS_HEADERS'] = 'Content-Type'
+CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+
+
+app.config['JWT_SECRET_KEY'] = 'JWT_SECRET_KEY'
+app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+jwt = JWTManager(app)
+
+
+logging.getLogger('flask_cors').level = logging.DEBUG
+
+
 def db_connection():
     conn = None
     try:
-        conn = pymysql.connect(host='localhost',
-                               database='mygram',
-                               user='root',
-                               password=os.environ['DB_PASSWORD'],
-                               charset='utf8mb4',
-                               cursorclass=pymysql.cursors.DictCursor)
+        conn = pymysql.connect(
+            host='localhost',
+            database='mygram',
+            user='root',
+            password=os.environ['DB_PASSWORD'],
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor
+        )
     except pymysql.MySQLError as e:
         print(e)
     return conn
 
+
 @app.route('/google_login', methods=['POST'])
 def login():
-    auth_code = request.get_json()['code']
+    auth_code = request.get_json().get('code')
 
     data = {
         'code': auth_code,
@@ -42,31 +56,48 @@ def login():
         'grant_type': 'authorization_code'
     }
 
-    response = requests.post('https://oauth2.googleapis.com/token', data=data).json()
+
+    response = requests.post('https://oauth2.googleapis.com/token', data=data)
+    if response.status_code != 200:
+        return jsonify({"msg": "Failed to obtain access token"}), 401
+
+    response_data = response.json()
+    access_token = response_data.get('access_token')
+
+    if not access_token:
+        return jsonify({"msg": "No access token found"}), 401
+
     headers = {
-        'Authorization': f'Bearer {response["access_token"]}'
+        'Authorization': f'Bearer {access_token}'
     }
     user_info = requests.get('https://www.googleapis.com/oauth2/v3/userinfo', headers=headers).json()
 
-    """
-        check here if user exists in database, if not, add him
-    """
 
-    jwt_token = create_access_token(identity=user_info['email'])  # create jwt token
+    jwt_token = create_access_token(identity=user_info['email'])
     response = jsonify(user=user_info)
-    response.set_cookie('access_token_cookie', value=jwt_token, secure=True)
+
+
+    response.set_cookie('access_token_cookie', value=jwt_token, secure=False, httponly=True)
 
     return response, 200
 
 
-
-@app.route("/protected", methods=["GET"])
-@jwt_required()
+@app.route('/protected', methods=['GET'])
 def protected():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({"message": "Token is missing!"}), 401
 
-    jwt_token = request.cookies.get('access_token_cookie') # Demonstration how to get the cookie
-    current_user = get_jwt_identity()
-    return jsonify(logged_in_as=current_user), 200
+    # Here, add your token verification logic
+    try:
+        # Assume verify_token is a function that verifies your token
+        user = verify_token(token.split(" ")[1])  # Strip 'Bearer ' from token
+    except Exception as e:
+        print("Token verification failed:", e)
+        return jsonify({"message": "Token is invalid!"}), 401
+
+    return jsonify({"message": "Access granted", "user": user}), 200
+
 @app.route('/users', methods=['GET', 'POST'])
 def users():
     conn = db_connection()
@@ -76,7 +107,7 @@ def users():
         rows = cursor.fetchall()
         conn.commit()
         return jsonify(rows)
-    
+
     if request.method == 'POST':
         name = request.get_json().get('name')
         email = request.get_json().get('email')
@@ -84,6 +115,7 @@ def users():
         cursor.execute(sql, (name, email))
         conn.commit()
         return jsonify({"message": "User added"})
+
 
 @app.route('/users/<int:id>', methods=['GET'])
 def user_by_id(id):
@@ -96,19 +128,19 @@ def user_by_id(id):
         conn.commit()
         return jsonify(row)
 
+
 @app.route('/posts', methods=['GET', 'POST', 'OPTIONS'])
-@cross_origin()
 def posts():
     conn = db_connection()
     cursor = conn.cursor()
     if request.method == 'GET':
         userid = request.args.get('userid')
-        sql = """SELECT title, DATE_FORMAT(created, '%%M %%d') AS formatted_date, LEFT(description, 30) AS short_description,id FROM posts WHERE user_id = %s"""
+        sql = """SELECT title, DATE_FORMAT(created, '%%M %%d') AS formatted_date, LEFT(description, 30) AS short_description, id FROM posts WHERE user_id = %s"""
         cursor.execute(sql, (userid,))
         rows = cursor.fetchall()
         conn.commit()
         return jsonify(rows)
-    
+
     if request.method == 'POST':
         data = request.get_json()
         title = data.get('title')
@@ -121,16 +153,13 @@ def posts():
         conn.commit()
         return jsonify({"message": "Post Added"})
 
+
 @app.route('/posts/<int:id>', methods=['GET'])
 def post_by_id(id):
     conn = db_connection()
     cursor = conn.cursor()
     if request.method == 'GET':
-        sql = """SELECT posts.title,
-                        posts.description,
-                        posts.created,
-                        COUNT(DISTINCT comments.id) AS num_comments,
-                        COUNT(DISTINCT post_likes.id) AS num_likes
+        sql = """SELECT posts.title, posts.description, posts.created, COUNT(DISTINCT comments.id) AS num_comments, COUNT(DISTINCT post_likes.id) AS num_likes
                  FROM posts 
                  LEFT JOIN comments ON posts.id = comments.post_id
                  LEFT JOIN post_likes ON posts.id = post_likes.post_id 
@@ -140,9 +169,6 @@ def post_by_id(id):
         row = cursor.fetchone()
         conn.commit()
         return jsonify(row)
-
-
-
 
 
 @app.route('/posts/<int:post_id>/likes', methods=['POST'])
@@ -155,6 +181,7 @@ def like_post(post_id):
         cursor.execute(sql, (post_id, user_id))
         conn.commit()
         return jsonify({"message": "Like Added"})
+
 
 @app.route('/posts/<int:post_id>/comments', methods=['POST'])
 def add_comment_post(post_id):
@@ -170,6 +197,7 @@ def add_comment_post(post_id):
         conn.commit()
         return jsonify({"message": "Comment Added"})
 
+
 @app.route('/posts/<int:post_id>/unlike', methods=['POST'])
 def unlike_post(post_id):
     conn = db_connection()
@@ -181,6 +209,7 @@ def unlike_post(post_id):
         conn.commit()
         return jsonify({"message": "Post Unliked"})
 
+
 @app.route('/comments/<int:comment_id>', methods=['DELETE'])
 def delete_comment(comment_id):
     conn = db_connection()
@@ -191,6 +220,7 @@ def delete_comment(comment_id):
         conn.commit()
         return jsonify({"message": "Comment Deleted"})
 
+
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
 def delete_post(post_id):
     conn = db_connection()
@@ -200,16 +230,18 @@ def delete_post(post_id):
         cursor.execute(sql, (post_id,))
         conn.commit()
         return jsonify({"message": "Post Deleted"})
-    
+
+
 @app.route('/posts/<int:post_id>/comments', methods=['GET'])
 def get_comments(post_id):
     conn = db_connection()
     cursor = conn.cursor()
     if request.method == 'GET':
-        cursor.execute("SELECT id, user_id, content,DATE_FORMAT(created, '%%M %%d') AS formatted_date FROM comments WHERE post_id = %s", (post_id,))
+        cursor.execute(
+            "SELECT id, user_id, content, DATE_FORMAT(created, '%%M %%d') AS formatted_date FROM comments WHERE post_id = %s",
+            (post_id,))
         comments = cursor.fetchall()
         return jsonify(comments)
-
 
 if __name__ == '__main__':
     app.run(port=8000, debug=True)
