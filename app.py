@@ -1,7 +1,7 @@
 import requests
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
-from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt_identity,unset_jwt_cookies,get_jwt,verify_jwt_in_request,get_csrf_token
 import os
 import pymysql
 from datetime import datetime
@@ -26,7 +26,15 @@ jwt = JWTManager(app)
 
 
 logging.getLogger('flask_cors').level = logging.DEBUG
+# Enable token blacklisting
+app.config['JWT_BLACKLIST_ENABLED'] = True
+app.config['JWT_BLACKLIST_TOKEN_CHECKS'] = ['access', 'refresh']
 
+blacklisted_tokens = set()
+
+@jwt.token_in_blocklist_loader
+def check_if_token_in_blacklist(jwt_header, jwt_payload):
+    return jwt_payload['jti'] in blacklisted_tokens
 
 def db_connection():
     conn = None
@@ -43,10 +51,21 @@ def db_connection():
         print(e)
     return conn
 
+@app.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    print("logout called")
+    verify_jwt_in_request()
+    jti = get_jwt()['jti']
+    blacklisted_tokens.add(jti)  # Blacklist the token
+    response = jsonify({'message': 'Successfully logged out'})
+    unset_jwt_cookies(response)  # Clear the cookie
+    return response
 
 @app.route('/google_login', methods=['POST'])
 def login():
     auth_code = request.get_json().get('code')
+    print(auth_code)
 
     data = {
         'code': auth_code,
@@ -78,6 +97,8 @@ def login():
 
 
     response.set_cookie('access_token_cookie', value=jwt_token, secure=False, httponly=True)
+    csrf_token = get_csrf_token(jwt_token)
+    response.set_cookie('csrf_access_token', csrf_token, httponly=False, secure=False)
 
     return response, 200
 
@@ -129,28 +150,70 @@ def user_by_id(id):
         return jsonify(row)
 
 
+
+@app.route('/me', methods=['GET'])
+@jwt_required()
+def get_user_info():
+    conn = db_connection()
+    cursor = conn.cursor()
+    current_user = get_jwt_identity()
+    print(current_user)
+    sql = "SELECT name from users WHERE email = %s"
+    cursor.execute(sql,  current_user)
+    row = cursor.fetchone()
+    conn.commit()
+    return jsonify(row)
+
+
+
 @app.route('/posts', methods=['GET', 'POST', 'OPTIONS'])
+@jwt_required()
 def posts():
     conn = db_connection()
     cursor = conn.cursor()
+    print(request.method)
+
+
     if request.method == 'GET':
+        jwt_token = request.cookies.get('access_token_cookie')  # Demonstration how to get the cookie
+        verify_jwt_in_request()
+        current_user = get_jwt_identity()
+        print(current_user)
         userid = request.args.get('userid')
+        print(userid)
+        sql1 = """SELECT id from users WHERE email = %s"""
+        cursor.execute(sql1, (current_user,))
+        user_rows = cursor.fetchone()
+        print(user_rows)
+        userid = user_rows['id']
         sql = """SELECT title, DATE_FORMAT(created, '%%M %%d') AS formatted_date, LEFT(description, 30) AS short_description, id FROM posts WHERE user_id = %s"""
         cursor.execute(sql, (userid,))
         rows = cursor.fetchall()
         conn.commit()
         return jsonify(rows)
 
+    if request.method == "OPTIONS":
+        return jsonify({"msg": "Options  allowed"}), 200
+
+
+
+
     if request.method == 'POST':
+        print("I am here")
+        jwt_token = request.cookies.get('access_token_cookie')
+        # csrf_token = request.cookies.get('csrf_access_token')# Demonstration how to get the cookie
+        verify_jwt_in_request()
+        current_user = get_jwt_identity()
         data = request.get_json()
         title = data.get('title')
         description = data.get('description')
         userid = data.get('userId')
+        print(userid)
         now = datetime.now()
         formatted_datetime = now.strftime('%Y-%m-%d %H:%M:%S')
         sql = """INSERT INTO posts(title, description, created, user_id) VALUES(%s, %s, %s, %s)"""
         cursor.execute(sql, (title, description, formatted_datetime, userid))
-        conn.commit()
+        conn.commit() # needed if the query modifies the table
         return jsonify({"message": "Post Added"})
 
 
