@@ -28,7 +28,7 @@ CORS(app,
          r"/*": {
              "origins": ALLOWED_ORIGINS,
              "supports_credentials": True,
-             "allow_headers": ["Content-Type", "Authorization"],
+             "allow_headers": ["Content-Type", "Authorization","x-csrf-token"],
              "expose_headers": ["Content-Type", "Authorization"],
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
          }
