@@ -16,10 +16,23 @@ GOOGLE_CLIENT_ID = os.environ['GOOGLE_CLIENT_ID']
 GOOGLE_SECRET_KEY = os.environ['GOOGLE_CLIENT_SECRET']
 
 COOKIE_SECURE = os.getenv('COOKIE_SECURE', 'False') == 'True'
+# Configure CORS
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",           # Local development
+    "https://mygramui.onrender.com",   # Production site
+    # Add any other domains you need to support
+]
 
-
-app.config['CORS_HEADERS'] = 'Content-Type'
-CORS(app, supports_credentials=True, origins=["http://localhost:3000","https://mygramui.onrender.com"])
+CORS(app,
+     resources={
+         r"/*": {
+             "origins": ALLOWED_ORIGINS,
+             "supports_credentials": True,
+             "allow_headers": ["Content-Type", "Authorization"],
+             "expose_headers": ["Content-Type", "Authorization"],
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+         }
+     })
 
 
 app.config['JWT_SECRET_KEY'] = 'JWT_SECRET_KEY'
@@ -112,9 +125,9 @@ def login():
     response = jsonify(user=user_info)
 
 
-    response.set_cookie('access_token_cookie', value=jwt_token, secure=COOKIE_SECURE, httponly=True,samesite='None')
+    response.set_cookie('access_token_cookie', value=jwt_token, secure=COOKIE_SECURE, httponly=True,samesite='None',path='/')
     csrf_token = get_csrf_token(jwt_token)
-    response.set_cookie('csrf_access_token', csrf_token, httponly=False, secure=COOKIE_SECURE,samesite='None')
+    response.set_cookie('csrf_access_token', csrf_token, httponly=False, secure=COOKIE_SECURE,samesite='None',path='/')
 
     return response, 200
 
