@@ -127,8 +127,9 @@ def login():
 
     response.set_cookie('access_token_cookie', value=jwt_token, secure=COOKIE_SECURE, httponly=True,samesite='None',path='/')
     csrf_token = get_csrf_token(jwt_token)
-    response.set_cookie('csrf_access_token', csrf_token, httponly=False, secure=COOKIE_SECURE,samesite='None',path='/')
+    # response.set_cookie('csrf_access_token', csrf_token, httponly=False, secure=COOKIE_SECURE,samesite='None',path='/')
 
+    response.headers['X-CSRF-TOKEN'] = csrf_token
     return response, 200
 
 
