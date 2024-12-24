@@ -29,7 +29,7 @@ CORS(app,
              "origins": ALLOWED_ORIGINS,
              "supports_credentials": True,
              "allow_headers": ["Content-Type", "Authorization","x-csrf-token"],
-             "expose_headers": ["Content-Type", "Authorization"],
+             "expose_headers": ["Content-Type", "Authorization","x-csrf-token"],
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
          }
      })
@@ -130,6 +130,7 @@ def login():
     # response.set_cookie('csrf_access_token', csrf_token, httponly=False, secure=COOKIE_SECURE,samesite='None',path='/')
 
     response.headers['X-CSRF-TOKEN'] = csrf_token
+    response.headers['Access-Control-Expose-Headers'] = 'X-CSRF-TOKEN'
     return response, 200
 
 
