@@ -182,7 +182,7 @@ def get_user_info():
 
 
 
-@app.route('/posts', methods=['GET', 'POST'])
+@app.route('/posts', methods=['GET', 'POST','OPTIONS'])
 @jwt_required()
 def posts():
     conn = db_connection()
@@ -235,6 +235,16 @@ def posts():
         cursor.execute(sql, (title, description, formatted_datetime, userid['id']))
         conn.commit()
         return jsonify({"message": "Post Added"})
+
+    if request.method == 'OPTIONS':
+        # Handle pre-flight request here (CORS headers, etc.)
+        response = Response()
+        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+        response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS, DELETE, PUT'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        return response
 
 
 
