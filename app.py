@@ -1,5 +1,5 @@
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,Response
 from dotenv import load_dotenv
 from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt_identity,unset_jwt_cookies,get_jwt,verify_jwt_in_request,get_csrf_token
 import os
@@ -56,7 +56,7 @@ def db_connection():
 @app.before_request
 def handle_options():
     if request.method == 'OPTIONS':
-        response = flask.Response()
+        response = Response()
         response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
         response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS, DELETE, PUT'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
