@@ -52,6 +52,20 @@ def db_connection():
         print(e)
     return conn
 
+
+@app.before_request
+def handle_options():
+    if request.method == 'OPTIONS':
+        response = flask.Response()
+        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+        response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS, DELETE, PUT'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        return response
+
+
+
 @app.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
