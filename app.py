@@ -15,9 +15,11 @@ load_dotenv()
 GOOGLE_CLIENT_ID = os.environ['GOOGLE_CLIENT_ID']
 GOOGLE_SECRET_KEY = os.environ['GOOGLE_CLIENT_SECRET']
 
+COOKIE_SECURE = os.getenv('COOKIE_SECURE', 'False') == 'True'
+
 
 app.config['CORS_HEADERS'] = 'Content-Type'
-CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+CORS(app, supports_credentials=True, origins=["http://localhost:3000","https://deploy-preview-13--cerulean-gingersnap-fdeb52.netlify.app"])
 
 
 app.config['JWT_SECRET_KEY'] = 'JWT_SECRET_KEY'
@@ -95,9 +97,9 @@ def login():
     response = jsonify(user=user_info)
 
 
-    response.set_cookie('access_token_cookie', value=jwt_token, secure=False, httponly=True)
+    response.set_cookie('access_token_cookie', value=jwt_token, secure=COOKIE_SECURE, httponly=True,samesite='None')
     csrf_token = get_csrf_token(jwt_token)
-    response.set_cookie('csrf_access_token', csrf_token, httponly=False, secure=False)
+    response.set_cookie('csrf_access_token', csrf_token, httponly=False, secure=COOKIE_SECURE,samesite='None')
 
     return response, 200
 
