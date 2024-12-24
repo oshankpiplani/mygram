@@ -19,7 +19,7 @@ COOKIE_SECURE = os.getenv('COOKIE_SECURE', 'False') == 'True'
 
 
 app.config['CORS_HEADERS'] = 'Content-Type'
-CORS(app, supports_credentials=True, origins=["http://localhost:3000","https://cerulean-gingersnap-fdeb52.netlify.app"])
+CORS(app, supports_credentials=True, origins=["http://localhost:3000","https://mygramui.onrender.com"])
 
 
 app.config['JWT_SECRET_KEY'] = 'JWT_SECRET_KEY'
