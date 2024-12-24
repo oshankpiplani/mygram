@@ -19,7 +19,7 @@ COOKIE_SECURE = os.getenv('COOKIE_SECURE', 'False') == 'True'
 
 
 app.config['CORS_HEADERS'] = 'Content-Type'
-CORS(app, supports_credentials=True, origins=["http://localhost:3000","https://deploy-preview-13--cerulean-gingersnap-fdeb52.netlify.app"])
+CORS(app, supports_credentials=True, origins=["http://localhost:3000","https://cerulean-gingersnap-fdeb52.netlify.app"])
 
 
 app.config['JWT_SECRET_KEY'] = 'JWT_SECRET_KEY'
@@ -56,6 +56,7 @@ def db_connection():
 @app.before_request
 def handle_options():
     if request.method == 'OPTIONS':
+        print("Options is working")
         response = Response()
         response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
         response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS, DELETE, PUT'
