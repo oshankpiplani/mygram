@@ -181,7 +181,7 @@ def get_user_info():
 
 
 
-@app.route('/posts', methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/posts', methods=['GET', 'POST'])
 @jwt_required()
 def posts():
     conn = db_connection()
@@ -207,8 +207,7 @@ def posts():
         conn.commit()
         return jsonify(rows)
 
-    if request.method == "OPTIONS":
-        return jsonify({"msg": "Options  allowed"}), 200
+
 
 
 
