@@ -204,17 +204,24 @@ def posts():
         # csrf_token = request.cookies.get('csrf_access_token')# Demonstration how to get the cookie
         verify_jwt_in_request()
         current_user = get_jwt_identity()
+        print("current_user", current_user)
+        sql1="""SELECT id from users WHERE email = %s"""
+        cursor.execute(sql1,(current_user))
+        userid = cursor.fetchone()
+
+
         data = request.get_json()
         title = data.get('title')
         description = data.get('description')
-        userid = data.get('userId')
+
         print(userid)
         now = datetime.now()
         formatted_datetime = now.strftime('%Y-%m-%d %H:%M:%S')
         sql = """INSERT INTO posts(title, description, created, user_id) VALUES(%s, %s, %s, %s)"""
-        cursor.execute(sql, (title, description, formatted_datetime, userid))
-        conn.commit() # needed if the query modifies the table
+        cursor.execute(sql, (title, description, formatted_datetime, userid['id']))
+        conn.commit()
         return jsonify({"message": "Post Added"})
+
 
 
 @app.route('/posts/<int:id>', methods=['GET'])
