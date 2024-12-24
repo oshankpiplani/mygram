@@ -28,7 +28,7 @@ CORS(app,
          r"/*": {
              "origins": ALLOWED_ORIGINS,
              "supports_credentials": True,
-             "allow_headers": ["Content-Type", "Authorization"],
+             "allow_headers": ["Content-Type", "Authorization","x-csrf-token"],
              "expose_headers": ["Content-Type", "Authorization"],
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
          }
@@ -73,7 +73,7 @@ def handle_options():
         response = Response()
         response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
         response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS, DELETE, PUT'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization,x-csrf-token'
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         response.headers['Access-Control-Max-Age'] = '3600'
         return response
