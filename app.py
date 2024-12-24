@@ -39,13 +39,12 @@ def check_if_token_in_blacklist(jwt_header, jwt_payload):
 def db_connection():
     conn = None
     try:
-        conn = pymysql.connect(
-            host='localhost',
-            database='mygram',
-            user='root',
-            password=os.environ['DB_PASSWORD'],
-            charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor
+        conn = pymysql.connect(host=os.environ['MYSQLHOST'],
+                               database=os.environ['MYSQLDATABASE'],
+                               user=os.environ['MYSQLUSER'],
+                               password=os.environ['MYSQLPASSWORD'],
+                               charset='utf8mb4',
+                               cursorclass=pymysql.cursors.DictCursor
         )
     except pymysql.MySQLError as e:
         print(e)
