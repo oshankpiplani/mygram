@@ -200,8 +200,7 @@ def posts():
 
     if request.method == 'POST':
         print("I am here")
-        jwt_token = request.cookies.get('access_token_cookie')
-        # csrf_token = request.cookies.get('csrf_access_token')# Demonstration how to get the cookie
+
         verify_jwt_in_request()
         current_user = get_jwt_identity()
         print("current_user", current_user)
