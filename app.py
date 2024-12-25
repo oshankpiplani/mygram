@@ -150,23 +150,27 @@ def protected():
 
     return jsonify({"message": "Access granted", "user": user}), 200
 
-@app.route('/users', methods=['GET', 'POST'])
+@app.route('/users', methods=['POST'])
 def users():
     conn = db_connection()
     cursor = conn.cursor()
-    if request.method == 'GET':
-        cursor.execute("SELECT * FROM users")
-        rows = cursor.fetchall()
-        conn.commit()
-        return jsonify(rows)
 
-    if request.method == 'POST':
-        name = request.get_json().get('name')
-        email = request.get_json().get('email')
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+
+    # Check if user already exists
+    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+    user = cursor.fetchone()
+
+    if user:
+        return jsonify({"message": "User already exists", "user": user}), 200
+    else:
+        # Insert user if not found
         sql = """INSERT INTO users(name, email) VALUES(%s, %s)"""
         cursor.execute(sql, (name, email))
         conn.commit()
-        return jsonify({"message": "User added"})
+        return jsonify({"message": "User added"}), 201
 
 
 @app.route('/users/<int:id>', methods=['GET'])
