@@ -93,6 +93,8 @@ def logout():
 
 @app.route('/google_login', methods=['POST'])
 def login():
+    conn = db_connection()
+    cursor = conn.cursor()
     auth_code = request.get_json().get('code')
     print(auth_code)
 
@@ -119,6 +121,18 @@ def login():
         'Authorization': f'Bearer {access_token}'
     }
     user_info = requests.get('https://www.googleapis.com/oauth2/v3/userinfo', headers=headers).json()
+    print("userinfo",user_info)
+    cursor.execute("SELECT * FROM users WHERE email = %s", (user_info['email'],))
+    user = cursor.fetchone()
+
+    if user:
+        print("User Already exists")
+    else:
+        # Insert user if not found
+        sql = """INSERT INTO users(name, email) VALUES(%s, %s)"""
+        cursor.execute(sql, (user_info['name'], user_info['email']))
+        conn.commit()
+
 
 
     jwt_token = create_access_token(identity=user_info['email'])
@@ -150,23 +164,27 @@ def protected():
 
     return jsonify({"message": "Access granted", "user": user}), 200
 
-@app.route('/users', methods=['GET', 'POST'])
+@app.route('/users', methods=['POST'])
 def users():
     conn = db_connection()
     cursor = conn.cursor()
-    if request.method == 'GET':
-        cursor.execute("SELECT * FROM users")
-        rows = cursor.fetchall()
-        conn.commit()
-        return jsonify(rows)
 
-    if request.method == 'POST':
-        name = request.get_json().get('name')
-        email = request.get_json().get('email')
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+
+    # Check if user already exists
+    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+    user = cursor.fetchone()
+
+    if user:
+        return jsonify({"message": "User already exists", "user": user}), 200
+    else:
+        # Insert user if not found
         sql = """INSERT INTO users(name, email) VALUES(%s, %s)"""
         cursor.execute(sql, (name, email))
         conn.commit()
-        return jsonify({"message": "User added"})
+        return jsonify({"message": "User added"}), 201
 
 
 @app.route('/users/<int:id>', methods=['GET'])
@@ -281,11 +299,20 @@ def post_by_id(id):
 
 
 @app.route('/posts/<int:post_id>/likes', methods=['POST'])
+@jwt_required()
 def like_post(post_id):
     conn = db_connection()
     cursor = conn.cursor()
     if request.method == 'POST':
-        user_id = request.get_json().get('user_id')
+        jwt_token = request.cookies.get('access_token_cookie')
+        verify_jwt_in_request()
+        current_user = get_jwt_identity()
+        print("current_user", current_user)
+        sql1 = """SELECT id from users WHERE email = %s"""
+        cursor.execute(sql1, (current_user,))
+        user_rows = cursor.fetchone()
+        print(user_rows)
+        user_id = user_rows['id']
         sql = """INSERT INTO post_likes(post_id, user_id) VALUES(%s, %s)"""
         cursor.execute(sql, (post_id, user_id))
         conn.commit()
@@ -297,7 +324,14 @@ def add_comment_post(post_id):
     conn = db_connection()
     cursor = conn.cursor()
     if request.method == 'POST':
-        user_id = request.get_json().get('user_id')
+        jwt_token = request.cookies.get('access_token_cookie')  # Demonstration how to get the cookie
+        verify_jwt_in_request()
+        current_user = get_jwt_identity()
+        sql1 = """SELECT id from users WHERE email = %s"""
+        cursor.execute(sql1, (current_user,))
+        user_rows = cursor.fetchone()
+        print(user_rows)
+        user_id = user_rows['id']
         content = request.get_json().get('content')
         now = datetime.now()
         formatted_datetime = now.strftime('%Y-%m-%d %H:%M:%S')
@@ -312,7 +346,15 @@ def unlike_post(post_id):
     conn = db_connection()
     cursor = conn.cursor()
     if request.method == 'POST':
-        user_id = request.get_json().get('user_id')
+        jwt_token = request.cookies.get('access_token_cookie')  # Demonstration how to get the cookie
+        verify_jwt_in_request()
+        current_user = get_jwt_identity()
+        sql1 = """SELECT id from users WHERE email = %s"""
+        cursor.execute(sql1, (current_user,))
+        user_rows = cursor.fetchone()
+        print(user_rows)
+        user_id = user_rows['id']
+
         sql = """DELETE FROM post_likes WHERE user_id = %s AND post_id = %s"""
         cursor.execute(sql, (user_id, post_id))
         conn.commit()
